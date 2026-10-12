@@ -225,7 +225,8 @@ async function loadTodos() {
       throw new Error(`GitHub API Fehler: ${res.status}`);
     }
     const data = await res.json();
-    const decoded = decodeURIComponent(escape(atob(data.content)));
+    let decoded = decodeURIComponent(escape(atob(data.content)));
+    decoded = decoded.replace(/^﻿/, ''); // BOM entfernen, falls vorhanden
     const parsed = JSON.parse(decoded);
     allTodos = parsed.todos || [];
 
