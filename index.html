@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sanamor To Dos</title>
+<style>
+  :root {
+    --bg: #faf9f7;
+    --panel: #ffffff;
+    --border: #e6e2db;
+    --text: #2b2825;
+    --muted: #8a8378;
+    --accent: #a8714a;
+    --accent-soft: #f3e6da;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-tap-highlight-color: transparent;
+  }
+  header {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  h1 { margin: 0 0 4px; font-size: 19px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 12px; }
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  button, select, input[type="text"], input[type="password"] {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  input[type="text"] { flex: 1; min-width: 140px; }
+  main { padding: 14px 16px 60px; max-width: 760px; margin: 0 auto; }
+  .stats {
+    display: flex;
+    gap: 10px;
+    margin: 14px 0 18px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+  }
+  .stat b { color: var(--text); font-size: 16px; display: block; }
+  .group { margin-bottom: 22px; }
+  .group-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .group-count {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 1px 9px;
+    font-size: 11.5px;
+  }
+  ul.todos { list-style: none; margin: 0; padding: 0; }
+  li.todo {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 11px 13px;
+    margin-bottom: 7px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  li.todo.checked { opacity: 0.45; }
+  li.todo.checked .text { text-decoration: line-through; }
+  .checkbox {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--muted);
+    border-radius: 4px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .meta { flex: 1; min-width: 0; }
+  .text { font-size: 15px; line-height: 1.4; }
+  .path {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    overflow-wrap: anywhere;
+  }
+  .empty, .error { text-align: center; color: var(--muted); padding: 50px 20px; }
+  .error { color: #b14747; }
+  .setup {
+    padding: 50px 16px;
+    text-align: center;
+  }
+  .setup p { color: var(--muted); max-width: 420px; margin: 10px auto 18px; line-height: 1.5; font-size: 14px; }
+  .setup input { width: 100%; max-width: 320px; margin-bottom: 10px; }
+  .note { font-size: 11.5px; color: var(--muted); margin-top: 24px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sanamor To Dos</h1>
+  <div class="sub" id="subline">Lade...</div>
+  <div class="controls" id="controls" style="display:none;">
+    <button class="secondary" id="reloadBtn">🔄</button>
+    <input type="text" id="search" placeholder="Suchen...">
+    <select id="folderFilter"><option value="">Alle Ordner</option></select>
+    <select id="statusFilter">
+      <option value="open">Nur offene</option>
+      <option value="all">Offen + erledigt</option>
+    </select>
+  </div>
+</header>
+
+<main>
+  <div id="setupView" class="setup" style="display:none;">
+    <p>Diese App liest <code>todos.json</code> aus dem privaten Repo <code>sanamor-todos</code>. Dafür brauchst du einmalig ein GitHub-Token mit Lesezugriff. Es wird nur in diesem Browser gespeichert (localStorage), nicht irgendwo hochgeladen.</p>
+    <input type="password" id="tokenInput" placeholder="GitHub Token (ghp_... oder fine-grained)">
+    <br>
+    <button id="saveTokenBtn">Speichern & Laden</button>
+    <div class="note">
+      Token erstellen: github.com → Settings → Developer settings → Personal access tokens → Fine-grained token → Zugriff nur auf Repo "sanamor-todos" → Permission "Contents: Read-only".
+    </div>
+  </div>
+
+  <div id="statsRow" class="stats" style="display:none;"></div>
+  <div id="results"></div>
+</main>
+
+<script>
+const REPO = "juliansteffe-Sanamor/sanamor-todos";
+const FILE_PATH = "todos.json";
+const TOKEN_KEY = "sanamor_todo_gh_token";
+const SESSION_KEY = "sanamor_todo_session_checked";
+
+let allTodos = [];
+let sessionChecked = new Set(JSON.parse(localStorage.getItem(SESSION_KEY) || '[]'));
+
+const subline = document.getElementById('subline');
+const controls = document.getElementById('controls');
+const setupView = document.getElementById('setupView');
+const statsRow = document.getElementById('statsRow');
+const resultsEl = document.getElementById('results');
+const searchInput = document.getElementById('search');
+const folderFilter = document.getElementById('folderFilter');
+const statusFilter = document.getElementById('statusFilter');
+const reloadBtn = document.getElementById('reloadBtn');
+const tokenInput = document.getElementById('tokenInput');
+const saveTokenBtn = document.getElementById('saveTokenBtn');
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function loadTodos() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    setupView.style.display = 'block';
+    controls.style.display = 'none';
+    subline.textContent = 'Kein Token hinterlegt.';
+    return;
+  }
+
+  subline.textContent = 'Lade aktuelle To Dos...';
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      cache: 'no-store'
+    });
+    if (!res.ok) {
+      throw new Error(`GitHub API Fehler: ${res.status}`);
+    }
+    const data = await res.json();
+    const decoded = decodeURIComponent(escape(atob(data.content)));
+    const parsed = JSON.parse(decoded);
+    allTodos = parsed.todos || [];
+
+    setupView.style.display = 'none';
+    controls.style.display = 'flex';
+    subline.textContent = `${allTodos.length} To Dos · Stand: ${new Date(parsed.generated).toLocaleString('de-DE')}`;
+
+    buildFolderFilter();
+    render();
+  } catch (err) {
+    resultsEl.innerHTML = `<div class="error">Fehler beim Laden: ${escapeHtml(err.message)}<br><br>Prüfe, ob das Token noch gültig ist und Zugriff auf "sanamor-todos" hat.</div>`;
+    subline.textContent = 'Fehler beim Laden.';
+    controls.style.display = 'flex';
+  }
+}
+
+function buildFolderFilter() {
+  const folders = [...new Set(allTodos.map(t => t.folder))].sort();
+  folderFilter.innerHTML = '<option value="">Alle Ordner</option>' +
+    folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+}
+
+function render() {
+  const q = searchInput.value.trim().toLowerCase();
+  const folderVal = folderFilter.value;
+  const statusVal = statusFilter.value;
+
+  let filtered = allTodos.filter(t => {
+    const isCheckedEffective = t.checked || sessionChecked.has(t.id);
+    if (statusVal === 'open' && isCheckedEffective) return false;
+    if (folderVal && t.folder !== folderVal) return false;
+    if (q && !((t.text||'').toLowerCase().includes(q) || (t.file||'').toLowerCase().includes(q) || (t.heading||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const totalOpen = allTodos.filter(t => !t.checked && !sessionChecked.has(t.id)).length;
+  const totalDone = allTodos.length - totalOpen;
+  statsRow.style.display = 'flex';
+  statsRow.innerHTML = `
+    <div class="stat"><b>${allTodos.length}</b>Gesamt</div>
+    <div class="stat"><b>${totalOpen}</b>Offen</div>
+    <div class="stat"><b>${totalDone}</b>Erledigt</div>
+  `;
+
+  if (filtered.length === 0) {
+    resultsEl.innerHTML = '<div class="empty">Keine To Dos gefunden.</div>';
+    return;
+  }
+
+  const groups = {};
+  filtered.forEach(t => {
+    groups[t.folder] = groups[t.folder] || [];
+    groups[t.folder].push(t);
+  });
+
+  const sortedFolders = Object.keys(groups).sort();
+  resultsEl.innerHTML = sortedFolders.map(folder => {
+    const items = groups[folder];
+    const itemsHtml = items.map(t => {
+      const isChecked = t.checked || sessionChecked.has(t.id);
+      return `
+        <li class="todo ${isChecked ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
+          <div class="checkbox">${isChecked ? '✓' : ''}</div>
+          <div class="meta">
+            <div class="text">${escapeHtml(t.text)}</div>
+            <div class="path">${escapeHtml(t.file)}${t.heading ? ' · ' + escapeHtml(t.heading) : ''}</div>
+          </div>
+        </li>`;
+    }).join('');
+    return `
+      <div class="group">
+        <div class="group-title">${escapeHtml(folder)} <span class="group-count">${items.length}</span></div>
+        <ul class="todos">${itemsHtml}</ul>
+      </div>`;
+  }).join('');
+
+  resultsEl.querySelectorAll('.todo').forEach(li => {
+    li.addEventListener('click', () => {
+      const id = li.getAttribute('data-id');
+      if (sessionChecked.has(id)) {
+        sessionChecked.delete(id);
+      } else {
+        sessionChecked.add(id);
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify([...sessionChecked]));
+      render();
+    });
+  });
+}
+
+saveTokenBtn.addEventListener('click', () => {
+  const val = tokenInput.value.trim();
+  if (!val) return;
+  localStorage.setItem(TOKEN_KEY, val);
+  loadTodos();
+});
+
+reloadBtn.addEventListener('click', loadTodos);
+searchInput.addEventListener('input', render);
+folderFilter.addEventListener('change', render);
+statusFilter.addEventListener('change', render);
+
+loadTodos();
+</script>
+
+</body>
+</html>
