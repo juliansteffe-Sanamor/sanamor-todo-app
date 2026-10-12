@@ -14,6 +14,9 @@
     --accent: #a8714a;
     --accent-soft: #f3e6da;
     --radius: 10px;
+    --red: #c85d5d;
+    --orange: #d89c5a;
+    --yellow: #c9b562;
   }
   * { box-sizing: border-box; }
   body {
@@ -60,7 +63,7 @@
     border: 1px solid var(--border);
   }
   input[type="text"] { flex: 1; min-width: 140px; }
-  main { padding: 14px 16px 60px; max-width: 760px; margin: 0 auto; }
+  main { padding: 14px 16px 60px; max-width: 900px; margin: 0 auto; }
   .stats {
     display: flex;
     gap: 10px;
@@ -91,6 +94,9 @@
     align-items: center;
     gap: 8px;
   }
+  .group-title.priority-rot { color: var(--red); }
+  .group-title.priority-orange { color: var(--orange); }
+  .group-title.priority-gelb { color: var(--yellow); }
   .group-count {
     background: var(--accent-soft);
     color: var(--accent);
@@ -102,6 +108,7 @@
   li.todo {
     background: var(--panel);
     border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
     border-radius: var(--radius);
     padding: 11px 13px;
     margin-bottom: 7px;
@@ -109,6 +116,9 @@
     gap: 10px;
     align-items: flex-start;
   }
+  li.todo.priority-rot { border-left-color: var(--red); }
+  li.todo.priority-orange { border-left-color: var(--orange); }
+  li.todo.priority-gelb { border-left-color: var(--yellow); }
   li.todo.checked { opacity: 0.45; }
   li.todo.checked .text { text-decoration: line-through; }
   .checkbox {
@@ -125,7 +135,24 @@
     color: var(--accent);
   }
   .meta { flex: 1; min-width: 0; }
-  .text { font-size: 15px; line-height: 1.4; }
+  .text { font-size: 15px; line-height: 1.4; word-break: break-word; }
+  .tags {
+    margin-top: 5px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .tag.person { background: #dde6f0; color: #3d5a80; }
+  .tag.priority { background: #f0e6de; color: #a8714a; }
+  .tag.topic { background: #e6f0e6; color: #5a8a5a; }
   .path {
     font-size: 11px;
     color: var(--muted);
@@ -150,24 +177,25 @@
   <div class="sub" id="subline">Lade...</div>
   <div class="controls" id="controls" style="display:none;">
     <button class="secondary" id="reloadBtn">🔄</button>
-    <button class="secondary" id="resetTokenBtn">🔑 Token ändern</button>
     <input type="text" id="search" placeholder="Suchen...">
-    <select id="folderFilter"><option value="">Alle Ordner</option></select>
-    <select id="statusFilter">
-      <option value="open">Nur offene</option>
-      <option value="all">Offen + erledigt</option>
+    <select id="sortBy">
+      <option value="priority">Nach Dringlichkeit</option>
+      <option value="folder">Nach Bereich</option>
+      <option value="person">Nach Person</option>
     </select>
+    <select id="personFilter"><option value="">Alle Personen</option></select>
+    <button class="secondary" id="resetTokenBtn">🔑 Token ändern</button>
   </div>
 </header>
 
 <main>
   <div id="setupView" class="setup" style="display:none;">
-    <p>Diese App liest <code>todos.json</code> aus dem privaten Repo <code>sanamor-todos</code>. Dafür brauchst du einmalig ein GitHub-Token mit Lesezugriff. Es wird nur in diesem Browser gespeichert (localStorage), nicht irgendwo hochgeladen.</p>
+    <p>Diese App liest <code>todos.json</code> aus dem privaten Repo <code>sanamor-todos</code>. Dafür brauchst du einmalig ein GitHub-Token mit Lesezugriff.</p>
     <input type="password" id="tokenInput" placeholder="GitHub Token (ghp_... oder fine-grained)">
     <br>
     <button id="saveTokenBtn">Speichern & Laden</button>
     <div class="note">
-      Token erstellen: github.com → Settings → Developer settings → Personal access tokens → Fine-grained token → Zugriff nur auf Repo "sanamor-todos" → Permission "Contents: Read-only".
+      Token erstellen: github.com → Settings → Developer settings → Personal access tokens → Fine-grained token → Repo "sanamor-todos" → Permission "Contents: Read-only"
     </div>
   </div>
 
@@ -190,8 +218,8 @@ const setupView = document.getElementById('setupView');
 const statsRow = document.getElementById('statsRow');
 const resultsEl = document.getElementById('results');
 const searchInput = document.getElementById('search');
-const folderFilter = document.getElementById('folderFilter');
-const statusFilter = document.getElementById('statusFilter');
+const sortBySelect = document.getElementById('sortBy');
+const personFilterSelect = document.getElementById('personFilter');
 const reloadBtn = document.getElementById('reloadBtn');
 const resetTokenBtn = document.getElementById('resetTokenBtn');
 const tokenInput = document.getElementById('tokenInput');
@@ -201,6 +229,33 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+function extractTags(text) {
+  const tagRegex = /#(\w+)/g;
+  const tags = [];
+  let match;
+  while ((match = tagRegex.exec(text)) !== null) {
+    tags.push(match[1].toLowerCase());
+  }
+  return tags;
+}
+
+function getPriority(tags) {
+  if (tags.includes('kritisch')) return { order: 0, label: '🔴 Kritisch', class: 'priority-rot' };
+  if (tags.includes('wichtig')) return { order: 1, label: '🟠 Wichtig', class: 'priority-orange' };
+  return { order: 2, label: '🟡 Nice-to-have', class: 'priority-gelb' };
+}
+
+function getPerson(tags) {
+  if (tags.includes('ai') || tags.includes('claude')) return 'KI';
+  if (tags.includes('extern')) return 'Extern';
+  if (tags.includes('julian') || tags.includes('selbst')) return 'Julian';
+  return 'Ungeklärt';
+}
+
+function cleanText(text) {
+  return text.replace(/#\w+\s*$/g, '').trim();
 }
 
 async function loadTodos() {
@@ -221,23 +276,27 @@ async function loadTodos() {
       },
       cache: 'no-store'
     });
-    if (!res.ok) {
-      throw new Error(`GitHub API Fehler: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`GitHub API Fehler: ${res.status}`);
     const data = await res.json();
     let decoded = decodeURIComponent(escape(atob(data.content)));
-    decoded = decoded.replace(/^﻿/, ''); // BOM entfernen, falls vorhanden
+    decoded = decoded.replace(/^﻿/, '');
     const parsed = JSON.parse(decoded);
-    allTodos = parsed.todos || [];
+    allTodos = (parsed.todos || []).map(t => ({
+      ...t,
+      tags: extractTags(t.text),
+      priority: getPriority(extractTags(t.text)),
+      person: getPerson(extractTags(t.text)),
+      textClean: cleanText(t.text)
+    }));
 
     setupView.style.display = 'none';
     controls.style.display = 'flex';
     subline.textContent = `${allTodos.length} To Dos · Stand: ${new Date(parsed.generated).toLocaleString('de-DE')}`;
 
-    buildFolderFilter();
+    buildPersonFilter();
     render();
   } catch (err) {
-    resultsEl.innerHTML = `<div class="error">Fehler beim Laden: ${escapeHtml(err.message)}<br><br>Prüfe, ob das Token noch gültig ist und Zugriff auf "sanamor-todos" hat.<br><br><button class="secondary" id="resetTokenBtnInline">🔑 Token ändern</button></div>`;
+    resultsEl.innerHTML = `<div class="error">Fehler beim Laden: ${escapeHtml(err.message)}<br><br><button class="secondary" id="resetTokenBtnInline">🔑 Token ändern</button></div>`;
     const inlineBtn = document.getElementById('resetTokenBtnInline');
     if (inlineBtn) inlineBtn.addEventListener('click', resetToken);
     subline.textContent = 'Fehler beim Laden.';
@@ -245,22 +304,21 @@ async function loadTodos() {
   }
 }
 
-function buildFolderFilter() {
-  const folders = [...new Set(allTodos.map(t => t.folder))].sort();
-  folderFilter.innerHTML = '<option value="">Alle Ordner</option>' +
-    folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+function buildPersonFilter() {
+  const persons = [...new Set(allTodos.map(t => t.person))].sort();
+  personFilterSelect.innerHTML = '<option value="">Alle Personen</option>' +
+    persons.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
 }
 
 function render() {
   const q = searchInput.value.trim().toLowerCase();
-  const folderVal = folderFilter.value;
-  const statusVal = statusFilter.value;
+  const sortVal = sortBySelect.value;
+  const personVal = personFilterSelect.value;
 
   let filtered = allTodos.filter(t => {
     const isCheckedEffective = t.checked || sessionChecked.has(t.id);
-    if (statusVal === 'open' && isCheckedEffective) return false;
-    if (folderVal && t.folder !== folderVal) return false;
-    if (q && !((t.text||'').toLowerCase().includes(q) || (t.file||'').toLowerCase().includes(q) || (t.heading||'').toLowerCase().includes(q))) return false;
+    if (personVal && t.person !== personVal) return false;
+    if (q && !((t.textClean||'').toLowerCase().includes(q) || (t.file||'').toLowerCase().includes(q))) return false;
     return true;
   });
 
@@ -278,29 +336,51 @@ function render() {
     return;
   }
 
+  // Sort
+  if (sortVal === 'priority') {
+    filtered.sort((a, b) => a.priority.order - b.priority.order || (a.textClean||'').localeCompare(b.textClean||''));
+  } else if (sortVal === 'person') {
+    filtered.sort((a, b) => a.person.localeCompare(b.person) || a.priority.order - b.priority.order);
+  } else { // folder
+    filtered.sort((a, b) => (a.folder||'').localeCompare(b.folder||'') || a.priority.order - b.priority.order);
+  }
+
+  // Group
   const groups = {};
+  let groupKey;
   filtered.forEach(t => {
-    groups[t.folder] = groups[t.folder] || [];
-    groups[t.folder].push(t);
+    if (sortVal === 'priority') {
+      groupKey = t.priority.label;
+    } else if (sortVal === 'person') {
+      groupKey = t.person;
+    } else {
+      groupKey = t.folder || 'Sonstiges';
+    }
+    groups[groupKey] = groups[groupKey] || [];
+    groups[groupKey].push(t);
   });
 
-  const sortedFolders = Object.keys(groups).sort();
-  resultsEl.innerHTML = sortedFolders.map(folder => {
-    const items = groups[folder];
+  const sortedGroups = Object.keys(groups).sort();
+  resultsEl.innerHTML = sortedGroups.map(groupLabel => {
+    const items = groups[groupLabel];
+    const firstItem = items[0];
+    const priorityClass = firstItem.priority.class || '';
     const itemsHtml = items.map(t => {
       const isChecked = t.checked || sessionChecked.has(t.id);
+      const tagBadges = t.tags.map(tag => `<span class="tag topic">#${escapeHtml(tag)}</span>`).join('');
       return `
-        <li class="todo ${isChecked ? 'checked' : ''}" data-id="${escapeHtml(t.id)}">
+        <li class="todo ${isChecked ? 'checked' : ''} ${t.priority.class}" data-id="${escapeHtml(t.id)}">
           <div class="checkbox">${isChecked ? '✓' : ''}</div>
           <div class="meta">
-            <div class="text">${escapeHtml(t.text)}</div>
-            <div class="path">${escapeHtml(t.file)}${t.heading ? ' · ' + escapeHtml(t.heading) : ''}</div>
+            <div class="text">${escapeHtml(t.textClean)}</div>
+            ${tagBadges ? `<div class="tags">${tagBadges}</div>` : ''}
+            <div class="path">👤 ${escapeHtml(t.person)} · ${escapeHtml(t.file)}${t.heading ? ' · ' + escapeHtml(t.heading) : ''}</div>
           </div>
         </li>`;
     }).join('');
     return `
       <div class="group">
-        <div class="group-title">${escapeHtml(folder)} <span class="group-count">${items.length}</span></div>
+        <div class="group-title ${priorityClass}">${escapeHtml(groupLabel)} <span class="group-count">${items.length}</span></div>
         <ul class="todos">${itemsHtml}</ul>
       </div>`;
   }).join('');
@@ -319,13 +399,6 @@ function render() {
   });
 }
 
-saveTokenBtn.addEventListener('click', () => {
-  const val = tokenInput.value.trim();
-  if (!val) return;
-  localStorage.setItem(TOKEN_KEY, val);
-  loadTodos();
-});
-
 function resetToken() {
   localStorage.removeItem(TOKEN_KEY);
   tokenInput.value = '';
@@ -336,11 +409,18 @@ function resetToken() {
   subline.textContent = 'Token entfernt, bitte neues eintragen.';
 }
 
+saveTokenBtn.addEventListener('click', () => {
+  const val = tokenInput.value.trim();
+  if (!val) return;
+  localStorage.setItem(TOKEN_KEY, val);
+  loadTodos();
+});
+
 reloadBtn.addEventListener('click', loadTodos);
 resetTokenBtn.addEventListener('click', resetToken);
 searchInput.addEventListener('input', render);
-folderFilter.addEventListener('change', render);
-statusFilter.addEventListener('change', render);
+sortBySelect.addEventListener('change', render);
+personFilterSelect.addEventListener('change', render);
 
 loadTodos();
 </script>
