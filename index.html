@@ -150,6 +150,7 @@
   <div class="sub" id="subline">Lade...</div>
   <div class="controls" id="controls" style="display:none;">
     <button class="secondary" id="reloadBtn">🔄</button>
+    <button class="secondary" id="resetTokenBtn">🔑 Token ändern</button>
     <input type="text" id="search" placeholder="Suchen...">
     <select id="folderFilter"><option value="">Alle Ordner</option></select>
     <select id="statusFilter">
@@ -192,6 +193,7 @@ const searchInput = document.getElementById('search');
 const folderFilter = document.getElementById('folderFilter');
 const statusFilter = document.getElementById('statusFilter');
 const reloadBtn = document.getElementById('reloadBtn');
+const resetTokenBtn = document.getElementById('resetTokenBtn');
 const tokenInput = document.getElementById('tokenInput');
 const saveTokenBtn = document.getElementById('saveTokenBtn');
 
@@ -234,7 +236,9 @@ async function loadTodos() {
     buildFolderFilter();
     render();
   } catch (err) {
-    resultsEl.innerHTML = `<div class="error">Fehler beim Laden: ${escapeHtml(err.message)}<br><br>Prüfe, ob das Token noch gültig ist und Zugriff auf "sanamor-todos" hat.</div>`;
+    resultsEl.innerHTML = `<div class="error">Fehler beim Laden: ${escapeHtml(err.message)}<br><br>Prüfe, ob das Token noch gültig ist und Zugriff auf "sanamor-todos" hat.<br><br><button class="secondary" id="resetTokenBtnInline">🔑 Token ändern</button></div>`;
+    const inlineBtn = document.getElementById('resetTokenBtnInline');
+    if (inlineBtn) inlineBtn.addEventListener('click', resetToken);
     subline.textContent = 'Fehler beim Laden.';
     controls.style.display = 'flex';
   }
@@ -321,7 +325,18 @@ saveTokenBtn.addEventListener('click', () => {
   loadTodos();
 });
 
+function resetToken() {
+  localStorage.removeItem(TOKEN_KEY);
+  tokenInput.value = '';
+  controls.style.display = 'none';
+  statsRow.style.display = 'none';
+  resultsEl.innerHTML = '';
+  setupView.style.display = 'block';
+  subline.textContent = 'Token entfernt, bitte neues eintragen.';
+}
+
 reloadBtn.addEventListener('click', loadTodos);
+resetTokenBtn.addEventListener('click', resetToken);
 searchInput.addEventListener('input', render);
 folderFilter.addEventListener('change', render);
 statusFilter.addEventListener('change', render);
